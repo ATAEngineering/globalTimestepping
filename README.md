@@ -32,12 +32,14 @@ make install
 # Usage
 First the module must be loaded at the top of the **vars** file. 
 The **global_cfl** options list can be used to specify the parameters of the 
-CFL ramp. The **urelax** parameter should be set to 1, and the **cflmax**
-parameter should not be used.
+CFL ramp. The **time_integration** method should be set to **euler**, the 
+**urelax** parameter should be set to 1, and the **cflmax** parameter should not
+be used.
 
 ```
 loadModule: globalTimestepping
 
+time_integration: euler
 urelax: 1.0
 global_cfl: <start=0.001, exponent=1.5, coefficient=1e-4, max=100>
 ```
