@@ -1,0 +1,141 @@
+// Copyright (C) 2022, ATA Engineering, Inc.
+// 
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation; either
+// version 3 of the License, or (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Lesser General Public License for more details.
+// 
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#include <Loci.h>
+// chem.lh must come before chemio.h
+$include "chem.lh"
+#include "chemio.h"
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+
+using std::cerr;
+using std::endl;
+
+namespace chem {
+
+$type global_cfl param<Loci::options_list>;
+$rule default(global_cfl) { $global_cfl = options_list(""); }
+
+$type global_cfl_max param<real>;
+$type global_cfl_start param<real>;
+$type global_cfl_exponent param<real>;
+$type global_cfl_coefficient param<real>;
+$rule singleton(global_cfl_start, global_cfl_exponent, global_cfl_coefficient,
+                global_cfl_max <- global_cfl) {
+  if ($global_cfl.optionExists("start")) {
+    $global_cfl.getOption("start", $global_cfl_start);
+  } else {
+    $global_cfl_start = 0.001;  // default value
+  }
+  if ($global_cfl_start <= 0.0) {
+    cerr << "ERROR: 'start' in 'global_cfl' must be greater than 0" << endl;
+    Loci::Abort();
+  }
+
+  if ($global_cfl.optionExists("exponent")) {
+    $global_cfl.getOption("exponent", $global_cfl_exponent);
+  } else {
+    $global_cfl_exponent = 1.0;  // default value
+  }
+
+  if ($global_cfl.optionExists("coefficient")) {
+    $global_cfl.getOption("coefficient", $global_cfl_coefficient);
+  } else {
+    $global_cfl_coefficient = 1.0;  // default value
+  }
+  if ($global_cfl_coefficient <= 0.0) {
+    cerr << "ERROR: 'coefficient' in 'global_cfl' must be greater than 0"
+         << endl;
+    Loci::Abort();
+  }
+
+  if ($global_cfl.optionExists("max")) {
+    $global_cfl.getOption("max", $global_cfl_max);
+  } else {
+    $global_cfl_max = 1.0;  // default value
+  }
+  if ($global_cfl_max <= 0.0) {
+    cerr << "ERROR: 'max' in 'global_cfl' must be greater than 0" << endl;
+    Loci::Abort();
+  }
+
+}
+
+$type stop_time param<TimeValue>;
+$type global_time_step Constraint; 
+$rule constraint(global_time_step <- time_integration, cflmax, dtmax, stop_time, 
+                 urelax) {
+  if ($time_integration != "euler") {
+    cerr << "ERROR: use 'euler' time_integration with globalTimeStepping"
+         << endl;
+    Loci::Abort();
+  }
+  if ($cflmax > 0) {
+    cerr << "ERROR: don't use 'cflmax' for globalTimeStepping, use 'global_cfl'"
+         << endl;
+    Loci::Abort();
+  }
+  if (fabs($urelax - 1.0) > 1e-20) {
+    cerr << "ERROR: set 'urelax' to 1 for globalTimeStepping";
+    Loci::Abort();
+  }
+  if ($dtmax > $stop_time) {
+    cerr << "WARNING: 'dtmax' is greater than 'stop_time', only one iteration "
+            "will be run"
+         << endl;
+  }
+
+  $global_time_step = ~EMPTY;
+}
+
+$type target_global_cfl param<real>;
+$rule singleton(target_global_cfl{n,it} <- global_cfl_coefficient, 
+                global_cfl_exponent, global_cfl_start, global_cfl_max, 
+                ncycle{n,it}) {
+  $target_global_cfl{n, it} =
+      min($global_cfl_max,
+          $global_cfl_coefficient * pow($ncycle{n, it}, $global_cfl_exponent) +
+              $global_cfl_start);
+}
+
+$type dt_cfl store<real>;
+$rule pointwise(dt_cfl{n,it} <- target_global_cfl{n,it}, vol, max_ev{n,it}) {
+  $dt_cfl{n,it} = $target_global_cfl{n,it} * $vol / $max_ev{n,it};
+}
+
+$type dt_global param<real>;
+$rule unit(dt_global), constraint(geom_cells, global_time_step) {
+  $dt_global = 1e30;
+}
+$rule apply(dt_global{n,it} <- dt_cfl{n,it})[Loci::Minimum], 
+    constraint(geom_cells, global_time_step) {
+  join($dt_global{n,it}, $dt_cfl{n,it});
+}
+
+$rule pointwise(priority::dt{n,it} <- dt_global{n,it}, target_global_cfl{n,it}), 
+    constraint(global_time_step, geom_cells), prelude {
+  if (Loci::MPI_rank == 0) {
+    std::cout << "Global CFL, Time Step = "
+              << $target_global_cfl{n, it}[seq[0].first] << ", "
+              << $dt_global{n, it}[seq[0].first] << std::endl;
+  }
+} compute {
+  $dt{n,it} = $dt_global{n,it};
+}
+
+  
+}
