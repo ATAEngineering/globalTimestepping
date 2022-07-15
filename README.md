@@ -46,4 +46,4 @@ The CFL ramp is calculated based on the iteration, $n$, as shown below where
 $A$ is the specified coefficient, $B$ the specified exponent, $C$ the specifed
 starting value, and $D$ the specified maximum CFL.
 
-$$ CFL = max \left( D, A n^B + C \right) $$
+$$ CFL = min \left( D, A n^B + C \right) $$
