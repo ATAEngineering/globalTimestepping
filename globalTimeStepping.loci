@@ -129,9 +129,9 @@ $rule apply(dt_global{n,it} <- dt_cfl{n,it})[Loci::Minimum],
 $rule pointwise(priority::dt{n,it} <- dt_global{n,it}, target_global_cfl{n,it}), 
     constraint(global_time_step, geom_cells), prelude {
   if (Loci::MPI_rank == 0) {
-    std::cout << "Global CFL, Time Step = "
-              << $target_global_cfl{n, it}[seq[0].first] << ", "
-              << $dt_global{n, it}[seq[0].first] << std::endl;
+    std::cout << "Global CFL = " << $target_global_cfl{n, it}[seq[0].first]
+              << ", Time Step = " << $dt_global{n, it}[seq[0].first]
+              << std::endl;
   }
 } compute {
   $dt{n,it} = $dt_global{n,it};
