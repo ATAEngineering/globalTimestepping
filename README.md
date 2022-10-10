@@ -37,7 +37,7 @@ CFL ramp. The **time_integration** method should be set to **euler**, the
 be used.
 
 ```
-loadModule: globalTimestepping
+loadModule: globalTimeStepping
 
 time_integration: euler
 urelax: 1.0
