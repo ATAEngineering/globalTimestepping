@@ -1,0 +1,86 @@
+# This file is a template, and might need editing before it works on your project.
+# This is a sample GitLab CI/CD configuration file that should run without any modifications.
+# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
+# it uses echo commands to simulate the pipeline execution.
+#
+# A pipeline is composed of independent jobs that run scripts, grouped into stages.
+# Stages run in sequential order, but jobs within stages run in parallel.
+#
+# For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
+#
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+
+variables:
+  PACKAGENAME: 'globalTimeStepping'
+  BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p7-gcc11"
+  VERSION: "latest"  # always overwrite package
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGENAME}/${VERSION}"
+
+default:
+  image: "$BUILD_IMAGE"
+  tags:
+  - linux, docker
+
+stages:          # List of stages for jobs, and their order of execution
+  - build
+  - quality_check
+  - upload
+
+build_module:
+  stage: build
+  script:
+    - whoami
+    - pwd
+    - ls -lh
+    - env
+    - scl enable gcc-toolset-11 'bash ci/build_module'
+  # Use artifacts to return logs and other files to GitLab (if necessary)
+  artifacts:
+    paths:
+      - globalTimeStepping_m.so
+
+
+# This will upload a tarball with the CHAR install to the package registry, but only when changes are merged into main
+# See: https://docs.gitlab.com/ee/user/project/releases/release_fields.html#release-assets
+upload_package:
+  stage: upload
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Run this job when commits are pushed or merged to the default branch
+  script:
+    - |
+      ls -lh
+      echo $PACKAGE_REGISTRY_URL
+      tar -czvf ${PACKAGENAME}.tar.gz globalTimeStepping_m.so
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${PACKAGENAME}.tar.gz "${PACKAGE_REGISTRY_URL}/${PACKAGENAME}.tar.gz"
+
+# Code and security scanning jobs
+sast:
+  stage: quality_check
+  artifacts:
+    paths:
+      - gl-sast-report.*
+
+secret_detection:
+  stage: quality_check
+  artifacts:
+    paths:
+      - gl-secret-detection-report.* 
+
+license_scanning:
+  stage: quality_check
+  artifacts:
+    paths:
+      - gl-secret-detection-report.* 
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/License-Scanning.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Jobs/License-Scanning.gitlab-ci.yml
+
+
