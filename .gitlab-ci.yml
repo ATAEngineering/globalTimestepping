@@ -17,10 +17,10 @@
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
 
 variables:
-  PACKAGENAME: 'globalTimeStepping'
+  MODULE_NAME: 'globalTimeStepping'
   BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p7-gcc11"
-  VERSION: "latest"  # always overwrite package
-  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGENAME}/${VERSION}"
+  VERSION: ${CI_COMMIT_TAG}
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${MODULE_NAME}/${VERSION}"
 
 default:
   image: "$BUILD_IMAGE"
@@ -31,6 +31,7 @@ stages:          # List of stages for jobs, and their order of execution
   - build
   - quality_check
   - upload
+  - release
 
 build_module:
   stage: build
@@ -51,13 +52,31 @@ build_module:
 upload_package:
   stage: upload
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Run this job when commits are pushed or merged to the default branch
+    - if: $CI_COMMIT_TAG =~ /\d+/
   script:
     - |
       ls -lh
       echo $PACKAGE_REGISTRY_URL
-      tar -czvf ${PACKAGENAME}.tar.gz globalTimeStepping_m.so
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${PACKAGENAME}.tar.gz "${PACKAGE_REGISTRY_URL}/${PACKAGENAME}.tar.gz"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}_m.so "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
+
+# This will create a release when main is tagged with a version number
+release_job:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ /\d+/  # only run this job if a tag is created with just a version number
+  script:
+    - echo "running release_job for ${VERSION}"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    description: ${CI_COMMIT_REF_NAME}-${CI_JOB_ID}
+    ref: $CI_COMMIT_SHA
+    assets:
+      links:
+        - name: ${MODULE_NAME}_m.so
+          url: "${PACKAGE_REGISTRY_URL}"
+          filepath: "/${MODULE_NAME}_m.so"
+          link_type: package
 
 # Code and security scanning jobs
 sast:
