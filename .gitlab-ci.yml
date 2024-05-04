@@ -74,7 +74,7 @@ release_job:
     assets:
       links:
         - name: ${MODULE_NAME}_m.so
-          url: "${PACKAGE_REGISTRY_URL}"
+          url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
           filepath: "/${MODULE_NAME}_m.so"
           link_type: package
 
