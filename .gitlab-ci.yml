@@ -59,6 +59,24 @@ upload_package:
       echo $PACKAGE_REGISTRY_URL
       curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}_m.so "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
 
+upload_distribution:
+  stage: upload
+  rules:
+    # only run this job if a tag is created with just a version number
+    - if: $CI_COMMIT_TAG =~ /\d+/
+  script:
+    - |
+      ls -lh
+      mkdir ${MODULE_NAME}-${VERSION}
+      cp README.md ${MODULE_NAME}-${VERSION}/
+      cp Makefile ${MODULE_NAME}-${VERSION}/Makefile
+      cp *.loci ${MODULE_NAME}-${VERSION}/
+      cp LICENSE ${MODULE_NAME}-${VERSION}/
+      tar zcvf ${MODULE_NAME}-${VERSION}.tar.gz ${MODULE_NAME}-${VERSION}
+      echo $PACKAGE_REGISTRY_URL
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}-${VERSION}.tar.gz "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}.tar.gz"      
+
+
 # This will create a release when main is tagged with a version number
 release_job:
   stage: release
@@ -76,6 +94,10 @@ release_job:
         - name: ${MODULE_NAME}_m.so
           url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
           filepath: "/${MODULE_NAME}_m.so"
+          link_type: package
+        - name: ${MODULE_NAME}-${VERSION}.tar.gz
+          url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}.tar.gz"
+          filepath: "/${MODULE_NAME}-${VERSION}.tar.gz"
           link_type: package
 
 # Code and security scanning jobs
