@@ -58,7 +58,7 @@ build_module_mpich:
     - pwd
     - ls -lh
     - env
-    - scl enable gcc-toolset-${GCC_VERSION} 'bash ci/build_module'
+    - scl enable gcc-toolset-${GCCVERSION} 'bash ci/build_module'
     - mkdir ${MODULE_NAME}
     - cp ${MODULE_NAME}_m.so ${MODULE_NAME}
     - tar zcvf ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz ${MODULE_NAME}
