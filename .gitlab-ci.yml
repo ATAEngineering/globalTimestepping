@@ -19,12 +19,11 @@
 variables:
   MODULE_NAME: 'globalTimeStepping'
   GCCVERSION: "13"
-  BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p10-gcc${GCCVERSION}"
+  BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p10-ata-gcc${GCCVERSION}"
   VERSION: ${CI_COMMIT_TAG}
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${MODULE_NAME}/${VERSION}"
 
 default:
-  image: "$BUILD_IMAGE"
   tags:
   - linux
 
@@ -34,18 +33,39 @@ stages:          # List of stages for jobs, and their order of execution
   - upload
   - release
 
-build_module:
+build_module_openmpi:
   stage: build
+  image: "${BUILD_IMAGE}-openmpi"
   script:
     - whoami
     - pwd
     - ls -lh
     - env
     - scl enable gcc-toolset-${GCCVERSION} 'bash ci/build_module'
+    - mkdir ${MODULE_NAME}
+    - cp ${MODULE_NAME}_m.so ${MODULE_NAME}
+    - tar zcvf ${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz ${MODULE_NAME}
   # Use artifacts to return logs and other files to GitLab (if necessary)
   artifacts:
     paths:
-      - globalTimeStepping_m.so
+      - ${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz
+
+build_module_mpich:
+  stage: build
+  image: "${BUILD_IMAGE}-mpich"
+  script:
+    - whoami
+    - pwd
+    - ls -lh
+    - env
+    - scl enable gcc-toolset-${GCCVERSION} 'bash ci/build_module'
+    - mkdir ${MODULE_NAME}
+    - cp ${MODULE_NAME}_m.so ${MODULE_NAME}
+    - tar zcvf ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz ${MODULE_NAME}
+  # Use artifacts to return logs and other files to GitLab (if necessary)
+  artifacts:
+    paths:
+      - ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz
 
 # This will upload a tarball with the CHAR install to the package registry, but only when changes are merged into main
 # See: https://docs.gitlab.com/ee/user/project/releases/release_fields.html#release-assets
@@ -57,7 +77,8 @@ upload_package:
     - |
       ls -lh
       echo $PACKAGE_REGISTRY_URL
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}_m.so "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}-build-mpich.tar.gz"
 
 upload_distribution:
   stage: upload
@@ -91,9 +112,13 @@ release_job:
     ref: $CI_COMMIT_SHA
     assets:
       links:
-        - name: ${MODULE_NAME}_m.so
-          url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}_m.so"
-          filepath: "/${MODULE_NAME}_m.so"
+        - name: ${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz
+          url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz"
+          filepath: "/${MODULE_NAME}-${VERSION}-build-openmpi.tar.gz"
+          link_type: package
+        - name: ${MODULE_NAME}-${VERSION}-build-mpich.tar.gz
+          url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}-build-mpich.tar.gz"
+          filepath: "/${MODULE_NAME}-${VERSION}-build-mpich.tar.gz"
           link_type: package
         - name: ${MODULE_NAME}-${VERSION}.tar.gz
           url: "${PACKAGE_REGISTRY_URL}/${MODULE_NAME}-${VERSION}.tar.gz"
