@@ -19,7 +19,7 @@
 variables:
   MODULE_NAME: 'globalTimeStepping'
   GCCVERSION: "13"
-  BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p10-ata-3-gcc${GCCVERSION}"
+  BUILD_IMAGE: "$CI_REGISTRY/containers/chem:4.0-p11-gcc${GCCVERSION}"
   VERSION: ${CI_COMMIT_TAG}
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${MODULE_NAME}/${VERSION}"
 
