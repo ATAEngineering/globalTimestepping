@@ -102,13 +102,37 @@ $rule constraint(global_time_step <- time_integration, cflmax, dtmax, stop_time,
   $global_time_step = ~EMPTY;
 }
 
+$type n_adjust param<int>;
+$type n_adjust_lag param<int>;
+$rule singleton(n_adjust_lag{n=0}), constraint(UNIVERSE) {
+  $n_adjust_lag{n=0} = 0;
+}
+
+$rule singleton(n_adjust_lag{n+1} <- n_adjust{n,it}, n_adjust_lag{n}), 
+    conditional(newton_finished{n,it}) {
+  $n_adjust_lag{n+1} = $n_adjust{n,it};
+}
+
+$type trajectory_change param<bool>;
+$rule unit(n_adjust{n,it} <- ncycle{n,it}), constraint(UNIVERSE{n,it}) {
+    $n_adjust{n,it} = 0.0;
+}
+$rule apply(n_adjust{n,it} <- ncycle{n,it})[Loci::Maximum] {
+  join($n_adjust{n,it}, 0.0);
+}
+$rule apply(n_adjust{n,it} <- ncycle{n,it}, trajectory_change{n,it}, n_adjust_lag{n})[Loci::Maximum] {
+  auto n = $trajectory_change{n,it} ? $ncycle{n,it} : $n_adjust_lag{n};
+  join($n_adjust{n,it}, n);
+}
+
+  
 $type target_global_cfl param<real>;
 $rule singleton(target_global_cfl{n,it} <- global_cfl_coefficient, 
                 global_cfl_exponent, global_cfl_start, global_cfl_max, 
-                ncycle{n,it}) {
+                ncycle{n,it}, n_adjust{n,it}) {
   $target_global_cfl{n, it} =
       min($global_cfl_max,
-          $global_cfl_coefficient * pow($ncycle{n, it}, $global_cfl_exponent) +
+          $global_cfl_coefficient * pow(($ncycle{n, it} - $n_adjust{n, it}), $global_cfl_exponent) +
               $global_cfl_start);
 }
 
