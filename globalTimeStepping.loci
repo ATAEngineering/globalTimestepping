@@ -52,17 +52,6 @@ $rule singleton(global_cfl_start, global_cfl_exponent, global_cfl_coefficient,
     $global_cfl_exponent = 1.0;  // default value
   }
 
-  if ($global_cfl.optionExists("coefficient")) {
-    $global_cfl.getOption("coefficient", $global_cfl_coefficient);
-  } else {
-    $global_cfl_coefficient = 1.0;  // default value
-  }
-  if ($global_cfl_coefficient <= 0.0) {
-    cerr << "ERROR: 'coefficient' in 'global_cfl' must be greater than 0"
-         << endl;
-    Loci::Abort();
-  }
-
   if ($global_cfl.optionExists("max")) {
     $global_cfl.getOption("max", $global_cfl_max);
   } else {
@@ -70,6 +59,30 @@ $rule singleton(global_cfl_start, global_cfl_exponent, global_cfl_coefficient,
   }
   if ($global_cfl_max <= 0.0) {
     cerr << "ERROR: 'max' in 'global_cfl' must be greater than 0" << endl;
+    Loci::Abort();
+  }
+
+  if ($global_cfl.optionExists("coefficient")) {
+    $global_cfl.getOption("coefficient", $global_cfl_coefficient);
+    if($global_cfl.optionExists("iterAtMaxCFL")) {
+          cerr << "Warning: both 'coefficient' and 'iterAtMaxCFL' in 'global_cfl' are specified. Ignoring 'iterAtMaxCFL'"
+         << endl;
+    }
+  } else {
+    if($global_cfl.optionExists("iterAtMaxCFL")) {
+      // Store iteration value in $global_cfl_coefficient temporarily, so we don't have to allocate another variable
+      $global_cfl.getOption("iterAtMaxCFL", $global_cfl_coefficient);
+      // cfl(n)=$global_cfl_start + $global_cfl_coefficient * $$ncycle ^ $global_cfl_exponent
+      // So, $global_cfl_max = $global_cfl_start + $global_cfl_coefficient * iterAtMaxCFL ^ $global_cfl_exponent
+      // And $global_cfl_coefficient = ($global_cfl_max - $global_cfl_start)/(iterAtMaxCFL ^ $global_cfl_exponent)
+      $global_cfl_coefficient=($global_cfl_max-$global_cfl_start)/pow($global_cfl_coefficient,$global_cfl_exponent);
+    } else {
+      $global_cfl_coefficient = 1.0;  // default value
+    }
+  }
+  if ($global_cfl_coefficient <= 0.0) {
+    cerr << "ERROR: 'coefficient' in 'global_cfl' must be greater than 0"
+         << endl;
     Loci::Abort();
   }
 
