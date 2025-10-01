@@ -64,6 +64,10 @@ $rule singleton(global_cfl_start, global_cfl_exponent, global_cfl_coefficient,
 
   if ($global_cfl.optionExists("coefficient")) {
     $global_cfl.getOption("coefficient", $global_cfl_coefficient);
+    if($global_cfl.optionExists("iterAtMaxCFL")) {
+          cerr << "Warning: both 'coefficient' and 'iterAtMaxCFL' in 'global_cfl' are specified. Ignoring 'iterAtMaxCFL'"
+         << endl;
+    }
   } else {
     if($global_cfl.optionExists("iterAtMaxCFL")) {
       // Store iteration value in $global_cfl_coefficient temporarily, so we don't have to allocate another variable
